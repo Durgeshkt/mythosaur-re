@@ -31,7 +31,7 @@ The installer ships a JRE and the whole patch/sign pipeline, so there's nothing 
   sudo apt install ./mythosaur-re_1.0.0_amd64.deb
   mythosaur-re
   ```
-- **Windows:** `.exe` (coming soon).
+- **Windows:** [`mythosaur-re_1.0.0_x64.exe`](https://github.com/Durgeshkt/mythosaur-re/releases/latest/download/mythosaur-re_1.0.0_x64.exe) (x64, run the installer).
 
 Optional: `adb` to push a patched APK to a device, and a disassembler for native `.so`
 (`binutils-multiarch`, `llvm`, or a per-arch `binutils-<arch>`; the stock x86-only `objdump`
