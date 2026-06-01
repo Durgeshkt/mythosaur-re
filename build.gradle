@@ -36,6 +36,10 @@ dependencies {
     implementation 'org.smali:baksmali:2.5.2'
     implementation 'org.smali:smali:2.5.2'
 
+    // apksig — in-process APK signing + verification (v1/v2/v3), so no external apksigner
+    // is needed. Bundled as a library; the whole sign step runs inside the app's own JVM.
+    implementation 'com.android.tools.build:apksig:8.5.2'
+
     // Multi-decompiler "second opinion" — alternate open-source decompilers + DEX→JVM bridge
     implementation 'org.benf:cfr:0.152'                                  // CFR (MIT)
     implementation 'org.vineflower:vineflower:1.11.1'                    // Vineflower (Apache 2.0)

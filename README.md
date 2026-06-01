@@ -83,7 +83,9 @@ are not like that, and that gap is what Mythosaur is built around.
 
 ### Patch and re-sign
 - Edit smali for code-only changes, or do a full decode for resources and the manifest.
-- Rebuild, zipalign, sign and verify (v1/v2/v3), then optionally install over adb.
+- Rebuild, align, sign and verify (v1/v2/v3), then optionally install over adb.
+- **Self-contained**: alignment and signing run in-process — no external `zipalign`,
+  `apksigner` or JDK needed. Install the `.deb`/`.exe` and the patch pipeline just works.
 
 ### Quality-of-life
 - Optional live smali debugger (breakpoints, stepping, registers) on a debuggable device.
@@ -94,18 +96,20 @@ are not like that, and that gap is what Mythosaur is built around.
 
 ## Requirements
 
+If you install the native `.deb`/`.exe`, **nothing else is needed** for the full
+analyse → patch → sign → verify workflow. The Java runtime, decompilers, smali tools and
+APK signing are all bundled; alignment and v1/v2/v3 signing run **in-process** (no external
+`zipalign`/`apksigner`), and the debug keystore uses the bundled runtime's `keytool`. Two
+things stay optional:
+
 | Tool | Why | Install (Debian/Kali) |
 |------|-----|------------------------|
-| **JDK 21+** | runs the IDE | `sudo apt install openjdk-21-jdk` |
-| **zipalign**, **apksigner** | align + sign rebuilt APKs | `sudo apt install zipalign apksigner` |
-| **keytool** | debug keystore (ships with the JDK) | — |
-| Internet (first run) | Gradle deps + `apktool.jar` | — |
-| `adb` *(optional)* | install patched APKs to a device | `sudo apt install adb` |
-| A disassembler *(optional)* | native `.so` disassembly | see next ↓ |
+| `adb` *(optional)* | install a patched APK onto a device | `sudo apt install adb` |
+| a disassembler *(optional)* | native `.so` disassembly | see [below](#native-disassembly-toolchain) |
 
-Everything else — jadx, dexlib2, smali/baksmali, **apktool** — is embedded or
-auto-fetched; you don't install it separately. (`apktool_2.9.3.jar` is downloaded once
-to `~/.mythosaur/tools/apktool.jar` on first full decode/rebuild.)
+Building from source instead needs **JDK 21+** (`sudo apt install openjdk-21-jdk`); the
+first run downloads the Gradle deps. The full apktool decode path fetches `apktool.jar`
+once to `~/.mythosaur/tools/`.
 
 ### Native disassembly toolchain
 

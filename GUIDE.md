@@ -11,15 +11,15 @@ map and a per-method **Control-Flow Graph**.
 
 ## 1. Requirements
 
+If you install the native `.deb`/`.exe`, the analyse → patch → **sign** → verify pipeline
+needs **no external tools** — APK alignment and v1/v2/v3 signing run in-process, and the
+debug keystore uses the bundled runtime's `keytool`. Only these stay optional:
+
 | Tool | Why | Install |
 |------|-----|---------|
-| **JDK 21+** | runs the IDE | `sudo apt install openjdk-21-jdk` |
-| **zipalign** | align rebuilt APKs | `sudo apt install zipalign` |
-| **apksigner** | sign + verify APKs | `sudo apt install apksigner` |
-| **keytool** | debug keystore (bundled with JDK) | — |
-| Internet (first run) | Gradle deps + apktool.jar | — |
-| `adb` *(optional)* | install patched APK to a device | `sudo apt install adb` |
+| `adb` *(optional)* | install a patched APK to a device | `sudo apt install adb` |
 | a disassembler *(optional)* | native `.so` disassembly | `sudo apt install binutils-multiarch` (or `llvm`, or per-arch `binutils-aarch64-linux-gnu`) |
+| **JDK 21+** *(source build only)* | run/build from source | `sudo apt install openjdk-21-jdk` |
 
 Everything else — jadx, dexlib2, smali/baksmali, **apktool** — is embedded or
 auto-fetched. You don't install them separately.

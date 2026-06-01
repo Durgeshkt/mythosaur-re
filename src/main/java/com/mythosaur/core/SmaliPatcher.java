@@ -1,5 +1,7 @@
 package com.mythosaur.core;
 
+import com.android.apksig.ApkSigner;
+import com.android.apksig.ApkVerifier;
 import org.jf.baksmali.Baksmali;
 import org.jf.baksmali.BaksmaliOptions;
 import org.jf.dexlib2.dexbacked.DexBackedDexFile;
@@ -12,6 +14,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
@@ -67,39 +73,76 @@ public class SmaliPatcher {
         File unsigned = buildDir.resolve("apktool-unsigned.apk").toFile();
         ApktoolService.build(apktoolRoot.toFile(), unsigned, p::update);
 
-        p.update("Aligning (zipalign)…");
+        p.update("Aligning…");
         File aligned = buildDir.resolve("apktool-aligned.apk").toFile();
-        run("zipalign", "-f", "4", unsigned.getAbsolutePath(), aligned.getAbsolutePath());
+        ZipAligner.align(unsigned, aligned);
 
         File keystore = ensureDebugKeystore(p);
-        p.update("Signing (apksigner)…");
+        p.update("Signing…");
         File signed = buildDir.resolve("patched-apktool.apk").toFile();
-        run("apksigner", "sign", "--ks", keystore.getAbsolutePath(),
-                "--ks-key-alias", "mythosaur", "--ks-pass", "pass:mythosaur",
-                "--key-pass", "pass:mythosaur", "--out", signed.getAbsolutePath(),
-                aligned.getAbsolutePath());
+        signApk(aligned, signed, keystore);
 
         String verify = verify(signed);
         p.update("Signature: " + verify);
         return signed;
     }
 
-    /** Run `apksigner verify --verbose` and summarise which schemes verified. */
+    /** Verify signature schemes in-process (apksig). Returns e.g. "1✓ 2✓ 3✓". */
     public String verify(File apk) {
         try {
-            String out = capture("apksigner", "verify", "--verbose", apk.getAbsolutePath());
+            // Pin the checked platform version so apksig won't read it from a (possibly
+            // mangled) binary manifest — same reason as signApk's setMinSdkVersion.
+            ApkVerifier.Result r = new ApkVerifier.Builder(apk)
+                    .setMinCheckedPlatformVersion(resolveMinSdk())
+                    .build().verify();
             StringBuilder sb = new StringBuilder();
-            for (String scheme : new String[]{"v1 scheme", "v2 scheme", "v3 scheme"}) {
-                int i = out.indexOf(scheme);
-                if (i >= 0) {
-                    boolean ok = out.substring(i, Math.min(out.length(), i + 60)).contains("true");
-                    sb.append(scheme.charAt(1)).append(ok ? "✓ " : "✗ ");
-                }
-            }
-            return sb.length() > 0 ? sb.toString().trim() : "verified";
+            sb.append("1").append(r.isVerifiedUsingV1Scheme() ? "✓ " : "✗ ");
+            sb.append("2").append(r.isVerifiedUsingV2Scheme() ? "✓ " : "✗ ");
+            sb.append("3").append(r.isVerifiedUsingV3Scheme() ? "✓ " : "✗ ");
+            return r.isVerified() ? sb.toString().trim() : "NOT VERIFIED";
         } catch (Exception e) {
             return "verify failed: " + e.getMessage();
         }
+    }
+
+    /** Sign an (already aligned) APK in-process with the debug key — no external apksigner. */
+    private void signApk(File in, File out, File keystore) throws Exception {
+        char[] pass = "mythosaur".toCharArray();
+        KeyStore ks = KeyStore.getInstance("PKCS12");   // keytool's default store type (JDK 9+)
+        try (InputStream is = Files.newInputStream(keystore.toPath())) {
+            ks.load(is, pass);
+        }
+        PrivateKey key = (PrivateKey) ks.getKey("mythosaur", pass);
+        Certificate[] chain = ks.getCertificateChain("mythosaur");
+        List<X509Certificate> certs = new ArrayList<>();
+        for (Certificate c : chain) certs.add((X509Certificate) c);
+
+        ApkSigner.SignerConfig signer =
+                new ApkSigner.SignerConfig.Builder("mythosaur", key, certs).build();
+        // Set minSdk explicitly (from our tolerant manifest parser) so apksig doesn't try to
+        // read it from the binary manifest — hardened apps mangle that manifest and apksig
+        // would otherwise throw "Unable to determine APK's minimum supported version".
+        new ApkSigner.Builder(List.of(signer))
+                .setInputApk(in)
+                .setOutputApk(out)
+                .setMinSdkVersion(resolveMinSdk())
+                .setV1SigningEnabled(true)
+                .setV2SigningEnabled(true)
+                .setV3SigningEnabled(true)
+                .build()
+                .sign();
+    }
+
+    /** Best-effort minSdk from the (tolerant) manifest parser; safe modern default otherwise. */
+    private int resolveMinSdk() {
+        try {
+            String m = project.getManifest().getMinSdk();
+            if (m != null) {
+                String digits = m.replaceAll("[^0-9]", "");
+                if (!digits.isEmpty()) return Math.max(1, Integer.parseInt(digits));
+            }
+        } catch (Exception ignored) {}
+        return 21;
     }
 
     /** baksmali every dex into its own subfolder so we can reassemble 1:1. */
@@ -145,22 +188,16 @@ public class SmaliPatcher {
         File unsigned = buildDir.resolve("unsigned.apk").toFile();
         repackage(project.getApkFile(), unsigned, newDexes);
 
-        // 3) zipalign
-        p.update("Aligning (zipalign)…");
+        // 3) align (pure-Java zipalign — no external binary)
+        p.update("Aligning…");
         File aligned = buildDir.resolve("aligned.apk").toFile();
-        run("zipalign", "-f", "4", unsigned.getAbsolutePath(), aligned.getAbsolutePath());
+        ZipAligner.align(unsigned, aligned);
 
-        // 4) sign (generate debug keystore if needed)
+        // 4) sign in-process (apksig library — no external apksigner)
         File keystore = ensureDebugKeystore(p);
-        p.update("Signing (apksigner)…");
+        p.update("Signing…");
         File signed = buildDir.resolve("patched.apk").toFile();
-        run("apksigner", "sign",
-                "--ks", keystore.getAbsolutePath(),
-                "--ks-key-alias", "mythosaur",
-                "--ks-pass", "pass:mythosaur",
-                "--key-pass", "pass:mythosaur",
-                "--out", signed.getAbsolutePath(),
-                aligned.getAbsolutePath());
+        signApk(aligned, signed, keystore);
 
         String verify = verify(signed);
         p.update("Signed (" + verify + "): " + signed.getAbsolutePath());
@@ -215,13 +252,22 @@ public class SmaliPatcher {
         File ks = project.getWorkspace().resolve("debug.keystore").toFile();
         if (ks.isFile()) return ks;
         p.update("Generating debug keystore…");
-        run("keytool", "-genkeypair", "-v",
+        // Use the bundled JRE's keytool (absolute path) so no system JDK is required.
+        run(keytoolPath(), "-genkeypair", "-v",
                 "-keystore", ks.getAbsolutePath(),
                 "-alias", "mythosaur",
                 "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000",
                 "-storepass", "mythosaur", "-keypass", "mythosaur",
                 "-dname", "CN=Mythosaur,OU=RE,O=Mythosaur,L=NA,ST=NA,C=NA");
         return ks;
+    }
+
+    /** Absolute path to the bundled runtime's keytool, falling back to PATH if not found. */
+    private static String keytoolPath() {
+        String exe = System.getProperty("os.name", "").toLowerCase().contains("win")
+                ? "keytool.exe" : "keytool";
+        Path k = Path.of(System.getProperty("java.home"), "bin", exe);
+        return Files.isExecutable(k) ? k.toString() : exe;
     }
 
     private void run(String... cmd) throws Exception {
@@ -239,20 +285,5 @@ public class SmaliPatcher {
             throw new IOException(cmd[0] + " failed (" + code + "): "
                     + out.substring(0, Math.min(out.length(), 600)));
         }
-    }
-
-    /** Like run() but returns stdout and tolerates a non-zero exit (for verify). */
-    private String capture(String... cmd) throws Exception {
-        ProcessBuilder pb = new ProcessBuilder(cmd);
-        pb.redirectErrorStream(true);
-        Process proc = pb.start();
-        StringBuilder out = new StringBuilder();
-        try (InputStream is = proc.getInputStream()) {
-            byte[] b = new byte[4096];
-            int n;
-            while ((n = is.read(b)) > 0) out.append(new String(b, 0, n));
-        }
-        proc.waitFor();
-        return out.toString();
     }
 }
