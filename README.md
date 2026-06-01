@@ -85,6 +85,10 @@ Graphs: drag to pan, scroll to zoom, double-click empty space to reset.
 jadx, smali/baksmali/dexlib2, Apktool, CFR, Vineflower, Procyon, dex2jar, FlatLaf,
 RSyntaxTextArea, and apksig for signing. Each is used under its own license.
 
+## Author
+
+Built by **durgeshkt** — [LinkedIn](https://www.linkedin.com/in/durgeshkt/).
+
 ## License
 
-MIT, by durgeshkt.
+MIT.
