@@ -1,0 +1,84 @@
+plugins {
+    id 'application'
+    id 'java'
+}
+
+group = 'com.mythosaur'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+    google()
+}
+
+dependencies {
+    // Modern dark look & feel (IntelliJ-style)
+    implementation 'com.formdev:flatlaf:3.6'
+    implementation 'com.formdev:flatlaf-extras:3.6'
+
+    // Code editor component (syntax highlighting, folding) — what jadx-gui uses
+    implementation 'com.fifesoft:rsyntaxtextarea:3.6.0'
+    implementation 'com.fifesoft:autocomplete:3.3.2'
+
+    // jadx — DEX → Java decompiler, embedded as a library (no CLI)
+    implementation 'io.github.skylot:jadx-core:1.5.2'
+    implementation 'io.github.skylot:jadx-dex-input:1.5.2'
+    implementation 'io.github.skylot:jadx-smali-input:1.5.2'
+
+    // dexlib2 / smali — DEX binary parsing + smali assemble/disassemble
+    implementation 'org.smali:dexlib2:2.5.2'
+    implementation 'org.smali:baksmali:2.5.2'
+    implementation 'org.smali:smali:2.5.2'
+
+    // Multi-decompiler "second opinion" — alternate open-source decompilers + DEX→JVM bridge
+    implementation 'org.benf:cfr:0.152'                                  // CFR (MIT)
+    implementation 'org.vineflower:vineflower:1.11.1'                    // Vineflower (Apache 2.0)
+    implementation 'org.bitbucket.mstrobel:procyon-compilertools:0.6.0'  // Procyon (Apache 2.0)
+    implementation 'de.femtopedia.dex2jar:dex2jar:2.4.28'                // DEX→JAR bridge
+
+    // Logging (jadx uses slf4j)
+    implementation 'org.slf4j:slf4j-simple:2.0.13'
+}
+
+application {
+    mainClass = 'com.mythosaur.Main'
+    // Big apps (40k+ classes / 245k methods) need a large heap for jadx + dexlib2 +
+    // baksmali + apktool held together; 2g was OOMing. G1GC handles the large heap.
+    applicationDefaultJvmArgs = [
+        '-Xmx6g',
+        '-XX:+UseG1GC',
+        '-XX:MaxMetaspaceSize=512m',
+        '-Dsun.java2d.opengl=false'
+    ]
+}
+
+run {
+    systemProperty 'java.awt.headless', 'false'
+    // also apply the heap when launched via `gradlew run`
+    jvmArgs = ['-Xmx6g', '-XX:+UseG1GC', '-XX:MaxMetaspaceSize=512m', '-Dsun.java2d.opengl=false']
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:none']
+}
+
+// Headless end-to-end smoke harness: ./gradlew smoke --args="/path/a.apk /path/b.apk"
+tasks.register('smoke', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.mythosaur.FinalSmoke'
+    jvmArgs = ['-Xmx6g', '-XX:+UseG1GC', '-Dsun.java2d.opengl=false']
+}
+
+tasks.register('axmldump', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.mythosaur.AxmlDump'
+}

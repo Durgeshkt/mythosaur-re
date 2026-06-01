@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mythosaur RE — reverse-engineer the APKs that fight back</title>
+<meta name="description" content="Mythosaur RE is an Android reverse-engineering tool built for hardened, packed and heavily obfuscated apps — where a single decompiler or apktool gives up.">
+<meta property="og:title" content="Mythosaur RE">
+<meta property="og:description" content="An Android reverse-engineering tool built for hardened, packed and obfuscated apps.">
+<style>
+  :root{
+    --bg:#0a0e14; --bg2:#0d1117; --surface:#141a22; --surface2:#1a212b;
+    --border:#262d38; --border2:#333c49; --text:#e9eef5; --muted:#8b949e; --faint:#5a636e;
+    --accent:#f0a500; --accent2:#ffce5c; --cyan:#39d4e8; --green:#3fb950; --purple:#bc8cff; --red:#ff6b6b;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+    line-height:1.65;font-size:16px;-webkit-font-smoothing:antialiased}
+  a{color:var(--cyan);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  h1,h2,h3{letter-spacing:-.02em;line-height:1.15}
+  code{font-family:var(--mono);font-size:.88em;background:#10161f;border:1px solid var(--border);
+    border-radius:5px;padding:1px 6px}
+  pre{background:#0c1119;border:1px solid var(--border);border-radius:12px;padding:16px 18px;
+    overflow:auto;font-family:var(--mono);font-size:.85rem;line-height:1.6;margin:0}
+  pre code{background:none;border:none;padding:0}
+  .sub{color:var(--muted)}
+  .accent{color:var(--accent)}
+
+  /* ---------- nav ---------- */
+  header.nav{position:sticky;top:0;z-index:50;background:rgba(10,14,20,.72);
+    backdrop-filter:saturate(140%) blur(12px);border-bottom:1px solid var(--border)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem;color:var(--text)}
+  .brand .mark{color:var(--accent);font-size:1.4rem;line-height:1}
+  .nav-links{display:flex;align-items:center;gap:26px}
+  .nav-links a{color:var(--muted);font-size:.92rem;font-weight:500}
+  .nav-links a:hover{color:var(--text);text-decoration:none}
+  .nav-cta{padding:7px 15px;border:1px solid var(--border2);border-radius:9px;color:var(--text)!important}
+  .nav-cta:hover{border-color:var(--accent)}
+  @media(max-width:720px){.nav-links a.hideable{display:none}}
+
+  /* ---------- buttons ---------- */
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:11px;
+    font-weight:600;font-size:.96rem;border:1px solid var(--border2);transition:.16s}
+  .btn svg{width:18px;height:18px}
+  .btn.primary{background:linear-gradient(180deg,var(--accent2),var(--accent));color:#241a00;border-color:var(--accent)}
+  .btn.primary:hover{transform:translateY(-1px);text-decoration:none;box-shadow:0 8px 24px rgba(240,165,0,.25)}
+  .btn.ghost{background:var(--surface);color:var(--text)}
+  .btn.ghost:hover{border-color:var(--faint);text-decoration:none;background:var(--surface2)}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--border)}
+  .hero::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(680px 360px at 18% -8%, rgba(240,165,0,.16), transparent 60%),
+      radial-gradient(620px 340px at 92% 12%, rgba(57,212,232,.12), transparent 60%);}
+  .hero-in{position:relative;z-index:1;display:grid;grid-template-columns:1.05fr 1fr;gap:48px;
+    align-items:center;padding:74px 0 78px}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:600;
+    letter-spacing:.04em;color:var(--accent);background:rgba(240,165,0,.08);
+    border:1px solid rgba(240,165,0,.28);padding:5px 12px;border-radius:999px;text-transform:uppercase}
+  .hero h1{font-size:3.05rem;margin:18px 0 0;font-weight:800}
+  .hero h1 .g{background:linear-gradient(180deg,#fff,#b9c2cd);-webkit-background-clip:text;
+    background-clip:text;color:transparent}
+  .hero p.lead{font-size:1.12rem;color:var(--muted);margin:18px 0 0;max-width:30em}
+  .hero .cta{display:flex;gap:13px;margin-top:30px;flex-wrap:wrap}
+  .hero .meta{display:flex;gap:18px;margin-top:24px;flex-wrap:wrap;color:var(--faint);font-size:.84rem}
+  .hero .meta b{color:var(--muted);font-weight:600}
+  @media(max-width:880px){
+    .hero-in{grid-template-columns:1fr;gap:36px;padding:56px 0}
+    .hero h1{font-size:2.4rem}
+    .mock{order:-1}
+  }
+
+  /* ---------- app mockup ---------- */
+  .mock{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;overflow:hidden;
+    box-shadow:0 30px 70px -20px rgba(0,0,0,.7);font-family:var(--mono);font-size:11px}
+  .mock-bar{display:flex;align-items:center;gap:7px;padding:9px 12px;background:var(--surface);
+    border-bottom:1px solid var(--border)}
+  .mock-bar .dot{width:11px;height:11px;border-radius:50%}
+  .mock-bar .r{background:#ff5f57}.mock-bar .y{background:#febc2e}.mock-bar .g{background:#28c840}
+  .mock-bar .ttl{margin-left:8px;color:var(--faint);font-size:10.5px}
+  .mock-grid{display:grid;grid-template-columns:118px 1fr;min-height:248px}
+  .mock-tree{border-right:1px solid var(--border);padding:8px 6px;color:var(--muted);background:#0b1118}
+  .mock-tree .it{padding:2px 6px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mock-tree .it.dir{color:var(--cyan)} .mock-tree .it.sel{background:rgba(240,165,0,.16);color:var(--accent)}
+  .mock-tree .it.in{padding-left:16px}
+  .mock-main{display:flex;flex-direction:column}
+  .mock-code{padding:10px 12px;flex:1;line-height:1.7;border-bottom:1px solid var(--border)}
+  .mock-code .ln{color:var(--faint);margin-right:12px;user-select:none}
+  .kw{color:var(--purple)} .ty{color:var(--cyan)} .st{color:var(--green)} .cm{color:var(--faint)} .fn{color:var(--accent2)}
+  .mock-flow{display:flex;align-items:center;gap:6px;padding:10px 12px;background:#0b1118;color:var(--faint)}
+  .mock-flow .tag{color:var(--accent);font-weight:700;margin-right:6px}
+  .node{padding:4px 9px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--text)}
+  .node.lh{border-color:var(--accent);color:var(--accent)}
+  .arr{color:var(--faint)}
+
+  /* ---------- sections ---------- */
+  section{padding:64px 0;border-bottom:1px solid var(--border)}
+  .sec-head{max-width:640px;margin-bottom:34px}
+  .sec-head .kicker{color:var(--accent);font-weight:600;font-size:.82rem;letter-spacing:.05em;text-transform:uppercase}
+  .sec-head h2{font-size:1.9rem;margin:8px 0 0;font-weight:800}
+  .sec-head p{color:var(--muted);margin:10px 0 0;font-size:1.02rem}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(266px,1fr));gap:16px}
+  .feat{background:linear-gradient(180deg,var(--surface),var(--bg2));border:1px solid var(--border);
+    border-radius:14px;padding:22px;transition:.16s}
+  .feat:hover{border-color:var(--border2);transform:translateY(-2px)}
+  .feat .ic{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    background:rgba(240,165,0,.10);border:1px solid rgba(240,165,0,.22);margin-bottom:14px;color:var(--accent)}
+  .feat.cy .ic{background:rgba(57,212,232,.10);border-color:rgba(57,212,232,.22);color:var(--cyan)}
+  .feat .ic svg{width:21px;height:21px}
+  .feat h3{font-size:1.06rem;margin:0 0 6px}
+  .feat p{color:var(--muted);font-size:.92rem;margin:0}
+
+  .more{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px 28px;margin-top:30px}
+  .more li{list-style:none;color:var(--muted);font-size:.93rem;padding-left:24px;position:relative}
+  .more li::before{content:"";position:absolute;left:2px;top:9px;width:7px;height:7px;border-radius:2px;
+    background:var(--accent);transform:rotate(45deg)}
+  .more li b{color:var(--text);font-weight:600}
+  ul.more{padding:0;margin:30px 0 0}
+
+  /* download */
+  .dl{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:26px}
+  @media(max-width:680px){.dl{grid-template-columns:1fr}}
+  .os{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;display:flex;
+    flex-direction:column;gap:6px}
+  .os .top{display:flex;align-items:center;gap:12px}
+  .os .os-ic{width:34px;height:34px;color:var(--text)}
+  .os h3{margin:0;font-size:1.12rem}
+  .os .st-pill{font-size:.72rem;padding:2px 9px;border-radius:999px;border:1px solid var(--green);color:var(--green)}
+  .os .st-pill.soon{border-color:var(--border2);color:var(--faint)}
+  .os p{color:var(--muted);font-size:.9rem;margin:4px 0 12px}
+  .os .btn{align-self:flex-start;padding:9px 16px;font-size:.9rem}
+
+  .docs-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:680px){.docs-row{grid-template-columns:1fr}}
+  .doc{display:block;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;color:var(--text)}
+  .doc:hover{border-color:var(--accent);text-decoration:none;transform:translateY(-2px);transition:.16s}
+  .doc h3{margin:0 0 4px;font-size:1.02rem;color:var(--accent)}
+  .doc p{margin:0;color:var(--muted);font-size:.88rem}
+
+  footer{padding:40px 0 60px;color:var(--muted);font-size:.9rem}
+  footer .cols{display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap;align-items:flex-start}
+  footer a{color:var(--muted);text-decoration:underline}
+  footer .built{max-width:46em;color:var(--faint);font-size:.84rem;margin-top:6px}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top"><span class="mark">◈</span> Mythosaur RE</a>
+    <nav class="nav-links">
+      <a class="hideable" href="#why">Why</a>
+      <a class="hideable" href="#features">Features</a>
+      <a class="hideable" href="#download">Download</a>
+      <a class="hideable" href="#docs">Docs</a>
+      <a class="nav-cta" href="https://github.com/Durgeshkt/mythosaur-re">GitHub ↗</a>
+    </nav>
+  </div>
+</header>
+
+<a id="top"></a>
+<section class="hero" style="border-bottom:1px solid var(--border)">
+  <div class="wrap hero-in">
+    <div>
+      <span class="eyebrow">◈ Android RE · pure Java</span>
+      <h1><span class="g">Reverse-engineer the APKs<br>that fight back.</span></h1>
+      <p class="lead">An Android reverse-engineering tool built for hardened, packed and
+        heavily obfuscated apps — the ones where a single decompiler or apktool just gives up.</p>
+      <div class="cta">
+        <a class="btn primary" href="#download">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+          Download
+        </a>
+        <a class="btn ghost" href="https://github.com/Durgeshkt/mythosaur-re">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.6 2 12.3c0 4.5 2.9 8.3 6.8 9.7.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.4-3.4-1.4-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.3 1.1 2.9.8.1-.7.3-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.3 9.3 0 015 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5 3.9-1.4 6.8-5.2 6.8-9.7C22 6.6 17.5 2 12 2z"/></svg>
+          View source
+        </a>
+      </div>
+      <div class="meta">
+        <span><b>MIT</b> licensed</span>
+        <span><b>Java 21</b> · Swing</span>
+        <span>bundled JRE · <b>no JDK needed</b></span>
+      </div>
+    </div>
+
+    <!-- faux IDE window -->
+    <div class="mock" aria-hidden="true">
+      <div class="mock-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="ttl">Mythosaur RE — app.apk</span>
+      </div>
+      <div class="mock-grid">
+        <div class="mock-tree">
+          <div class="it dir">▾ com.app</div>
+          <div class="it in sel">LoginActivity</div>
+          <div class="it in">HomeActivity</div>
+          <div class="it in">Crypto</div>
+          <div class="it dir">▾ obf</div>
+          <div class="it in">a.class</div>
+          <div class="it in">b.class</div>
+        </div>
+        <div class="mock-main">
+          <div class="mock-code">
+            <div><span class="ln">12</span><span class="cm">// jadx failed — recovered via fallback</span></div>
+            <div><span class="ln">13</span><span class="kw">static</span> <span class="ty">String</span> <span class="fn">decrypt</span>(<span class="ty">int</span> k){</div>
+            <div><span class="ln">14</span>&nbsp;&nbsp;<span class="kw">return</span> <span class="ty">Crypto</span>.<span class="fn">x</span>(<span class="st">"a8F2…"</span>, k);</div>
+            <div><span class="ln">15</span>}</div>
+            <div><span class="ln">16</span><span class="cm">▶ Dry Run → "https://c2.example/api"</span></div>
+          </div>
+          <div class="mock-flow">
+            <span class="tag">App Flow</span>
+            <span class="node lh">Launcher</span><span class="arr">→</span>
+            <span class="node">Login</span><span class="arr">→</span>
+            <span class="node">Home</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section id="why">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Why it exists</div>
+      <h2>Built for the hard cases</h2>
+      <p>Most tools assume a clean, well-formed APK and one decompiler. Malware and protected
+         apps are not like that. That gap is the whole reason Mythosaur exists.</p>
+    </div>
+    <div class="cards">
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z"/></svg></div>
+        <h3>Opens APKs others won't</h3>
+        <p>Hardened packages ship a deliberately broken archive that strict tools reject, even
+           though Android installs them fine. Mythosaur repairs it and analyses it anyway.</p>
+      </div>
+      <div class="feat cy">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg></div>
+        <h3>Four decompilers, auto-fallback</h3>
+        <p>Every class can be rebuilt four ways, scored for quality, best picked for you. When
+           one chokes on obfuscated control flow, another usually reconstructs it cleanly.</p>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 5v14l11-7L8 5z"/></svg></div>
+        <h3>Beats string encryption</h3>
+        <p>A sandboxed Dalvik interpreter runs one method — say a string-decryptor — and shows
+           its real return value plus a register trace. No device, and you never run the app.</p>
+      </div>
+      <div class="feat cy">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg></div>
+        <h3>Bytecode when source fails</h3>
+        <p>Even if a class never decompiles, you still get its methods, strings, cross-refs,
+           control-flow graph and editable smali straight from the DEX.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">In the box</div>
+      <h2>Everything in one window</h2>
+      <p>Read, analyse, patch and re-sign without stitching command-line tools together by hand.</p>
+    </div>
+    <div class="cards">
+      <div class="feat cy">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg></div>
+        <h3>App navigation flow</h3>
+        <p>A top-down map of which Activity opens which, so you can see how the app moves
+           screen to screen — something most tools don't draw at all.</p>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="12" r="3"/><path d="M9 6h4a2 2 0 012 2v2M9 18h4a2 2 0 002-2v-2"/></svg></div>
+        <h3>Method control-flow graph</h3>
+        <p>Each method's basic blocks drawn as a graph, with branch and loop edges — the
+           function-internals view you'd expect from Cutter.</p>
+      </div>
+      <div class="feat cy">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+        <h3>Deep DEX analysis</h3>
+        <p>Filterable tables of classes, methods, imports and strings, plus cross-references
+           and a clickable call graph for any method.</p>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>Protections &amp; permissions</h3>
+        <p>Packer, obfuscation and anti-RE detection, an entropy scan for hidden payloads, and
+           a map linking each permission to the code that actually uses it.</p>
+      </div>
+      <div class="feat cy">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3l7 7-9 9H5v-7l9-9z"/><path d="M11 6l7 7"/></svg></div>
+        <h3>Patch &amp; re-sign</h3>
+        <p>Edit smali for code, or full-decode for resources and the manifest, then rebuild,
+           zipalign, sign and verify (v1/v2/v3), and install over adb.</p>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9l3 3-3 3M13 15h3"/></svg></div>
+        <h3>Native &amp; debugging</h3>
+        <p>ELF inspection with ARM64/ARM/x86 disassembly, plus an optional live smali debugger
+           (breakpoints, stepping, registers) on a debuggable device.</p>
+      </div>
+    </div>
+    <ul class="more">
+      <li><b>Multi-engine code view</b> with syntax highlighting and in-editor find (Ctrl+F)</li>
+      <li><b>Live-filtered class tree</b> that cuts a 40k-class app down to size</li>
+      <li><b>Global search</b> across names, strings, or full decompiled source</li>
+      <li><b>Tolerant manifest parsing</b> for mangled binary manifests</li>
+      <li><b>Reusable workspaces</b> that restore your edits and patched APKs</li>
+      <li><b>Live dark / light theme</b></li>
+    </ul>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section id="download">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Get it</div>
+      <h2>Download</h2>
+      <p>The installers bundle their own Java runtime, so end users don't need a JDK.</p>
+    </div>
+    <div class="dl">
+      <div class="os">
+        <div class="top">
+          <svg class="os-ic" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-2 0-3 1.8-3 4 0 1 .2 1.7-.4 2.7C7 11 5 13 5 16c0 2 1 3 2 3.5-.2.6.2 1.3.9 1.4 1 .2 1.3-.5 2.1-.4.7 0 1.3 0 2 0 .8-.1 1.1.6 2.1.4.7-.1 1.1-.8.9-1.4 1-.5 2-1.5 2-3.5 0-3-2-5-3.6-7.3C13.8 7.7 14 7 14 6c0-2.2-1-4-2-4z"/></svg>
+          <h3>Linux</h3><span class="st-pill">available</span>
+        </div>
+        <p>Debian / Ubuntu / Kali · <code>.deb</code>, bundles its own JRE.</p>
+        <a class="btn primary" href="https://github.com/Durgeshkt/mythosaur-re/releases/latest/download/mythosaur-re_1.0.0_amd64.deb">Download .deb (v1.0.0)</a>
+      </div>
+      <div class="os">
+        <div class="top">
+          <svg class="os-ic" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5l8-1.1V11H3V5zm0 7h8v7.1L3 18V12zm9-8.3L21 2.5V11h-9V3.7zM12 12h9v8.5L12 19.3V12z"/></svg>
+          <h3>Windows</h3><span class="st-pill soon">coming soon</span>
+        </div>
+        <p>x64 · <code>.exe</code> installer with Start-menu shortcuts.</p>
+        <a class="btn ghost" href="https://github.com/Durgeshkt/mythosaur-re/releases">Watch releases</a>
+      </div>
+    </div>
+    <pre><code><span class="cm"># Linux — install and launch</span>
+sudo apt install ./mythosaur-re_1.0.0_amd64.deb
+mythosaur-re
+
+<span class="cm"># or build &amp; run from source (needs JDK 21+)</span>
+git clone https://github.com/Durgeshkt/mythosaur-re.git
+cd mythosaur-re && ./gradlew run</code></pre>
+    <p class="sub" style="font-size:.86rem;margin-top:14px">Optional for the full pipeline:
+      <code>zipalign</code> + <code>apksigner</code> (patching), <code>adb</code> (install to device),
+      and a disassembler for native <code>.so</code> — <code>binutils-multiarch</code>,
+      <code>llvm</code>, or per-arch <code>binutils-&lt;arch&gt;</code>.</p>
+  </div>
+</section>
+
+<!-- DOCS -->
+<section id="docs">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Learn it</div>
+      <h2>Documentation</h2>
+    </div>
+    <div class="docs-row">
+      <a class="doc" href="https://github.com/Durgeshkt/mythosaur-re/blob/main/README.md">
+        <h3>README</h3><p>Overview, features and quick start.</p></a>
+      <a class="doc" href="https://github.com/Durgeshkt/mythosaur-re/blob/main/GUIDE.md">
+        <h3>User guide</h3><p>From opening an APK to patching and signing.</p></a>
+      <a class="doc" href="https://github.com/Durgeshkt/mythosaur-re/blob/main/REFERENCE.md">
+        <h3>Reference</h3><p>Every panel, menu and shortcut.</p></a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <div class="brand" style="font-size:1rem"><span class="mark">◈</span> Mythosaur RE</div>
+        <p class="sub" style="margin:8px 0 0">By <b class="accent">durgeshkt</b> · MIT licensed</p>
+      </div>
+      <div>
+        <a href="https://github.com/Durgeshkt/mythosaur-re">GitHub</a> &nbsp;·&nbsp;
+        <a href="https://github.com/Durgeshkt/mythosaur-re/releases">Releases</a> &nbsp;·&nbsp;
+        <a href="https://github.com/Durgeshkt/mythosaur-re/issues">Issues</a>
+      </div>
+    </div>
+    <p class="built">Uses jadx, smali/baksmali/dexlib2, Apktool, CFR, Vineflower, Procyon,
+      dex2jar, FlatLaf and RSyntaxTextArea, each under its own license.</p>
+  </div>
+</footer>
+
+</body>
+</html>

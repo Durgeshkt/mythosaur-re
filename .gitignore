@@ -1,0 +1,27 @@
+# Gradle / build output
+build/
+.gradle/
+
+# Packaged installers (published via GitHub Releases, not committed)
+dist/
+
+# Local tooling config (not project content)
+.claude/
+
+# IDE / editor
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs / temp
+*.log
+*.tmp

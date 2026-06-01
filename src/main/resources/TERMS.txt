@@ -1,0 +1,53 @@
+MYTHOSAUR RE — TERMS AND CONDITIONS
+
+Version 1.0
+
+Please read these Terms and Conditions ("Terms") carefully before installing or using
+Mythosaur RE ("the Software"). By installing, copying, or using the Software you agree
+to be bound by these Terms. If you do not agree, do not install or use the Software.
+
+1. ABOUT THE SOFTWARE
+   Mythosaur RE is an open-source Android application (APK) reverse-engineering tool
+   intended for software analysis, security research, education, and interoperability.
+
+2. AUTHORIZED USE ONLY
+   You agree to use the Software only on applications that you own, that you have
+   created, or for which you have explicit, lawful authorization to analyze. You are
+   solely responsible for ensuring that your use of the Software complies with all
+   applicable laws, regulations, contracts, and the rights of third parties (including
+   intellectual-property and computer-misuse laws in your jurisdiction). The Software
+   must not be used to infringe copyrights, circumvent protections unlawfully, or for
+   any unauthorized, malicious, or illegal purpose.
+
+3. RESPONSIBILITY
+   The Software analyzes only the files you supply to it. You are responsible for the
+   inputs you provide, the artifacts you produce (including modified or rebuilt
+   packages), and how you use or distribute them. The authors do not condone and accept
+   no responsibility for misuse.
+
+4. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+   PARTICULAR PURPOSE, AND NONINFRINGEMENT. The authors do not warrant that the Software
+   is accurate, complete, error-free, or that its output is correct.
+
+5. LIMITATION OF LIABILITY
+   TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL THE AUTHORS OR CONTRIBUTORS
+   BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+   CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
+   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+6. OPEN-SOURCE COMPONENTS
+   The Software is distributed with third-party open-source components, each of which
+   remains subject to and is used under its own license. Those licenses are retained in
+   full and are acknowledged with gratitude. Nothing in these Terms limits your rights
+   under those licenses with respect to the corresponding components.
+
+7. LICENSE
+   The Software itself is released under the MIT License.
+
+8. ACCEPTANCE
+   By selecting "I Agree" (or by installing or using the Software), you acknowledge that
+   you have read, understood, and agree to these Terms.
+
+Created by durgeshkt.
